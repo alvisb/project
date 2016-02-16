@@ -6,7 +6,7 @@ var io = require('socket.io')(http);
 app.use(express.static(__dirname));
 
 app.get('/', function(req, res){
-  res.sendfile('index.html');
+  res.sendFile('index.html');
 });
 
 http.listen(process.env.PORT || 3000, function(){
