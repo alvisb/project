@@ -1,0 +1,8 @@
+{
+  "name": "game",
+  "version": "0.0.1",
+  "description": "PRCO4 project",
+  "dependencies": {
+    "express": "^4.10.2"
+  }
+}
