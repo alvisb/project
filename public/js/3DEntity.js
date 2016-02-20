@@ -27,6 +27,9 @@ Entity3D.prototype.getID = function(){
 Entity3D.prototype.setPosition = function(newMatrix){
 	this.position.set(0, 0, 0);
 }
+Entity3D.prototype.getPosition = function(newMatrix){
+	return this.position;
+}
 
 Entity3D.prototype.setMatrix = function(newMatrix){
 	this.setRotationFromMatrix(newMatrix);
