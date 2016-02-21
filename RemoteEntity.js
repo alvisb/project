@@ -1,6 +1,6 @@
-function RemoteEntity(){ 
+function RemoteEntity(startPos){ 
 
-		var position;
+		var position = startPos;
 		var matrix;
 		var id;
 

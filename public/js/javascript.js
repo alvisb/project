@@ -7,7 +7,6 @@ socket.on("disconnect", onSocketDisconnect);
 socket.on("new player", onNewPlayer);
 socket.on("update player", onUpdatePlayer);
 socket.on("remove player", onRemovePlayer);
-socket.on("new bullet", onNewBullet);
 
 
 var scene = new THREE.Scene();
@@ -89,6 +88,7 @@ function getInput(){
 }
 
 function onSocketConnected() {
+	console.log("scoket connected (client)");
 	socket.emit("new player", {playerPos: cube.getPosition(), playerMatrix: cube.getMatrix()});
 }
 function onSocketDisconnect(data) {
@@ -108,16 +108,16 @@ function onNewPlayer(data) {
 	remoteShips.push(newShip);
 };
 
-function onUpdatePlayer(data) {
+function onUpdatePlayer(data) {	
 	var moveShip = shipById(data.id);
-	console.log("move player client:" + data.id);
-	
-	moveShip.setPosition(data.position);
+	console.log("move player position:" + data.playerPos);
+	moveShip.setPosition(data.playerPos, 0, 0);
 	//moveShip.setMatrix(data.matrix);
 };
 
 function onRemovePlayer(data){
 	var removePlayer = shipById(data.id);
+	console.log("remove player (clinet)");
 
 	if (!removePlayer) {
 		console.log("Player not found remove (client): "+data.id);

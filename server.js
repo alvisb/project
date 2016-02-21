@@ -3,12 +3,11 @@ var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 
-var remoteEntity = require("./RemoteEntity").RemoteEntity;
-var players = [];
-var remoteProjectiles = [];
+var RemoteEntity = require("./RemoteEntity").RemoteEntity;
+var players;
 
 function init(){
-	
+	players = [];
 	app.use(express.static(__dirname + '/public'));
 
 	app.get('/', function(req, res){
@@ -16,7 +15,7 @@ function init(){
 	});
 
 	http.listen(process.env.PORT || 3000, function(){
-	  console.log('listening on *:3000');
+	  console.log('listening on *:3000'  + process.env.PORT);
 	});
 
 	setEventHandlers();
@@ -27,16 +26,15 @@ var setEventHandlers = function() {
     io.on("connection", onSocketConnection);
 };
 
-function onSocketConnection(client) {
-    console.log("New player has connected: "+client.id);
-    client.on("disconnect", onClientDisconnect);
-    client.on("new player", onNewPlayer);
-    client.on("update player", onUpdatePlayer);
-
+function onSocketConnection(socket) {
+    console.log("New player has connected (server): "+socket.id);
+    socket.on("disconnect", onSocketDisconnect);
+    socket.on("new player", onNewPlayer);
+    socket.on("update player", onUpdatePlayer);
 };
 
-function onClientDisconnect() {
-    console.log("Player has disconnected: "+this.id);
+function onSocketDisconnect() {
+    console.log("Player has disconnected (server): "+this.id);
 	
 	var removePlayer = playerById(this.id);
 
@@ -46,16 +44,18 @@ function onClientDisconnect() {
 	};
 
 	players.splice(players.indexOf(removePlayer), 1);
-	this.broadcast.emit("reupdate player", {id: this.id});
+	this.broadcast.emit("remove player", {id: this.id});
 };
 
 
 function onNewPlayer(data) {
-	var newPlayer = new remoteEntity();
+	console.log("new player (server)");
+	var newPlayer = new RemoteEntity(data.playerPos);
 	newPlayer.id = this.id;
 	this.broadcast.emit("new player", {id: newPlayer.id, playerPos: newPlayer.getPosition(), playerMatrix: newPlayer.getMatrix()});
 	var i, existingPlayer;
 	for (i = 0; i < players.length; i++) {
+		console.log("existing player");
 		existingPlayer = players[i];
 		this.emit("new player", {id: existingPlayer.id, playerPos: existingPlayer.getPosition(), playerMatrix: existingPlayer.getMatrix()});
 	};
@@ -71,18 +71,9 @@ function onUpdatePlayer(data) {
 	};
 	movePlayer.setPosition(data.playerPos);
 	movePlayer.setMatrix(data.playerMatrix);
-	this.broadcast.emit("update player", {id: movePlayer.id, playerPos: movePlayer.getPosition(), playerMatrix: movePlayer.getMatrix()});
+	this.broadcast.emit("update player", {id: movePlayer.id, playerPos: 5, playerMatrix: movePlayer.getMatrix()});
 };
 
-function onNewProjectile(data) {
-	var newProjectile = new RemoteEntity(data.xBul, data.zBul);
-	newProjectile.id = this.id;
-	this.broadcast.emit("new bullet", {idBul: newProjectile.id, xBul: newProjectile.getX(), zBul: newProjectile.getZ(), bulRot: newProjectile.getRotation()});
-	
-	if(remoteProjectiles.length < 8){
-		remoteProjectiles.push(newProjectile);
-	}
-};
 
 function playerById(id) {
     var i;
@@ -94,14 +85,5 @@ function playerById(id) {
     return false;
 };
 
-function projectileById(id) {
-    var i;
-    for (i = 0; i < remoteProjectiles.length; i++) {
-        if (remoteProjectiles[i].id == id)
-            return remoteProjectiles[i];
-    };
-
-    return false;
-};
 
 init();
