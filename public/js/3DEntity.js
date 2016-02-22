@@ -3,12 +3,12 @@ function Entity3D(){
 
 	Entity3D.prototype.describe = function(){
 		THREE.Mesh.prototype.describe.call(this);
-		var id;
-		var rotationalMatrix =  new THREE.Matrix4();
-		var speed = 0.5;
-		var damage = 0;
-		var boundingBox;
-		var position = new THREE.Vector3();
+		this.id = "1234";
+		this.rotationalMatrix =  new THREE.Matrix4();
+		this.speed = 0.5;
+		this.damage = 0;
+		this.boundingBox;
+		this.position = new THREE.Vector3();
 		
 	}
 

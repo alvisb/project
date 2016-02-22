@@ -50,28 +50,36 @@ function onSocketDisconnect() {
 
 function onNewPlayer(data) {
 	console.log("new player (server)");
-	var newPlayer = new RemoteEntity(data.playerPos);
-	newPlayer.id = this.id;
-	this.broadcast.emit("new player", {id: newPlayer.id, playerPos: newPlayer.getPosition(), playerMatrix: newPlayer.getMatrix()});
+	var newPlayer = new RemoteEntity(data.x, data.y, data.z);
+	newPlayer.setX(data.x);
+	newPlayer.setY(data.y);
+	newPlayer.setZ(data.z);
+	console.log("coord(server): " + data.x + " " + data.y + " " + data.z);
+	newPlayer.id = data.id + this.id;
+	this.broadcast.emit("new player", {id: newPlayer.id, x: newPlayer.getX(), y: newPlayer.getY(), z: newPlayer.getZ(), playerMatrix: newPlayer.getMatrix()});
 	var i, existingPlayer;
 	for (i = 0; i < players.length; i++) {
 		console.log("existing player");
 		existingPlayer = players[i];
-		this.emit("new player", {id: existingPlayer.id, playerPos: existingPlayer.getPosition(), playerMatrix: existingPlayer.getMatrix()});
+		this.emit("new player", {id: existingPlayer.id, x: existingPlayer.getX(), y: existingPlayer.getY(), z: existingPlayer.getZ(), playerMatrix: existingPlayer.getMatrix()});
 	};
 	players.push(newPlayer);
 };
 
 function onUpdatePlayer(data) {
-	var movePlayer = playerById(this.id);
+	var movePlayer = playerById(data.id + this.id);
 
 	if (!movePlayer) {
-		console.log("Player not found move(server): "+this.id);
+		console.log("Player not found move(server): "+data.id);
 		return;
 	};
-	movePlayer.setPosition(data.playerPos);
+	console.log(" move coord(server): " + data.x + " " + data.y + " " + data.z);
+	movePlayer.setX(data.x);
+	movePlayer.setY(data.y);
+	movePlayer.setZ(data.z);
 	movePlayer.setMatrix(data.playerMatrix);
-	this.broadcast.emit("update player", {id: movePlayer.id, playerPos: 5, playerMatrix: movePlayer.getMatrix()});
+	movePlayer.id = data.id + this.id;
+	this.broadcast.emit("update player", {id: movePlayer.id, x: movePlayer.getX(), y: movePlayer.getY(), z: movePlayer.getZ(), playerMatrix: movePlayer.getMatrix()});
 };
 
 
