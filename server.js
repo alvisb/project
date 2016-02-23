@@ -51,35 +51,31 @@ function onSocketDisconnect() {
 function onNewPlayer(data) {
 	console.log("new player (server)");
 	var newPlayer = new RemoteEntity(data.x, data.y, data.z);
-	newPlayer.setX(data.x);
-	newPlayer.setY(data.y);
-	newPlayer.setZ(data.z);
+	newPlayer.setMatrix(data.playerMatrix);
 	console.log("coord(server): " + data.x + " " + data.y + " " + data.z);
-	newPlayer.id = data.id + this.id;
-	this.broadcast.emit("new player", {id: newPlayer.id, x: newPlayer.getX(), y: newPlayer.getY(), z: newPlayer.getZ(), playerMatrix: newPlayer.getMatrix()});
+	newPlayer.id = this.id;
+	this.broadcast.emit("new player", {id: newPlayer.id, playerMatrix: newPlayer.getMatrix()});
 	var i, existingPlayer;
 	for (i = 0; i < players.length; i++) {
 		console.log("existing player");
 		existingPlayer = players[i];
-		this.emit("new player", {id: existingPlayer.id, x: existingPlayer.getX(), y: existingPlayer.getY(), z: existingPlayer.getZ(), playerMatrix: existingPlayer.getMatrix()});
+		this.emit("new player", {id: existingPlayer.id, playerMatrix: existingPlayer.getMatrix()});
 	};
 	players.push(newPlayer);
 };
 
 function onUpdatePlayer(data) {
-	var movePlayer = playerById(data.id + this.id);
+	var movePlayer = playerById(this.id);
 
 	if (!movePlayer) {
-		console.log("Player not found move(server): "+data.id);
+		//console.log("Player not found move(server): "+data.id);
 		return;
 	};
-	console.log(" move coord(server): " + data.x + " " + data.y + " " + data.z);
-	movePlayer.setX(data.x);
-	movePlayer.setY(data.y);
-	movePlayer.setZ(data.z);
+	//console.log(" move coord(server): " + data.x + " " + data.y + " " + data.z);
+
 	movePlayer.setMatrix(data.playerMatrix);
-	movePlayer.id = data.id + this.id;
-	this.broadcast.emit("update player", {id: movePlayer.id, x: movePlayer.getX(), y: movePlayer.getY(), z: movePlayer.getZ(), playerMatrix: movePlayer.getMatrix()});
+	movePlayer.id = this.id;
+	this.broadcast.emit("update player", {id: movePlayer.id, playerMatrix: movePlayer.getMatrix()});
 };
 
 

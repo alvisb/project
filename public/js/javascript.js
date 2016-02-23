@@ -16,7 +16,7 @@ var renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth, window.innerHeight );
 document.body.appendChild( renderer.domElement );
 
-var geometryBox = new THREE.BoxGeometry( 1, 1, 1 );
+var geometryBox = new THREE.BoxGeometry( 1, 1, 1);
 var materialBox = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
 
 function randomNumber(MAX, MIN){
@@ -58,7 +58,7 @@ $( "body" ).mousedown(function() {
 var render = function () {
 	requestAnimationFrame( render );
 	getInput();
-	socket.emit("update player", {id: cube.getPlayerID(), x: cube.position.x, y: cube.position.y, z: cube.position.z, playerMatrix: cube.matrix});
+	socket.emit("update player", {playerMatrix: cube.matrix});
 	moveProjectiles();
 	renderer.render(scene, camera);
 };
@@ -95,7 +95,7 @@ function getInput(){
 function onSocketConnected() {
 	console.log("scoket connected (client)");
 	console.log("cube get id: " + cube.getPlayerID());
-	socket.emit("new player", {id: cube.getPlayerID(), x: cube.position.x, y: cube.position.y, z: cube.position.z, playerMatrix: cube.matrix});
+	socket.emit("new player", {id: cube.id, playerMatrix: cube.matrix});
 }
 function onSocketDisconnect(data) {
     console.log("Disconnected from socket server: " + data.id);
@@ -106,8 +106,8 @@ function onNewPlayer(data) {
     console.log("New player connected: "+data.id);
 	var newShip = new Ship(geometryBox, materialBox);
 	
-	newShip.setPlayerID(data.id);
-	newShip.position.set(data.x, data.y, data.z);
+	newShip.matrixAutoUpdate = false;
+	newShip.matrix = data.playerMatrix;
  console.log("coord: " + data.x + " " + data.y + " " + data.z);
 	scene.add(newShip);
 	console.log("PUSDH NEW SHIP");
@@ -116,10 +116,7 @@ function onNewPlayer(data) {
 
 function onUpdatePlayer(data) {	
 	var moveShip = shipById(data.id);
-	console.log("move player position:" + data.playerPos);
-	moveShip.position.set(data.x, data.y, data.z);
-	
-	//moveShip.setMatrix(data.matrix);
+	moveShip.matrix = data.playerMatrix;
 };
 
 function onRemovePlayer(data){
