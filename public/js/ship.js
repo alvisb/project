@@ -22,7 +22,7 @@ Ship.prototype.getPlayerID = function(){
 }
 
 Ship.prototype.takeDamage = function(damage){
-	
+	this.health -= damage;
 }
 
 Ship.prototype.setHealth = function(newHealth){
@@ -41,26 +41,22 @@ Ship.prototype.getProjectiles = function(){
 }
 
 Ship.prototype.fireBullet = function(){
-	var geometry = new THREE.SphereGeometry( 0.5, 32, 32 );
-		var material = new THREE.MeshBasicMaterial( { color: 0x0000ff } );
-		var localBullet = new Projectile(geometry, material);
-			//localBullet.setRotationFromMatrix(this.rotationalMatrix);
-			localBullet.position.x = this.position.x;
-			localBullet.position.y = this.position.y;
-			localBullet.position.z = this.position.z;
-			localBullet.setSpeed(3);
-			localBullet.setMatrix(this.matrix);
-			scene.add(localBullet);
-			this.firedProjectiles.push(localBullet);
+	var geometry = new THREE.SphereGeometry( 0.2, 32, 32 );
+		var material = new THREE.MeshBasicMaterial( { color: 0xCC0000 } );
+		var localProjectile = new Projectile(geometry, material);
+			//localProjectile.setRotationFromMatrix(this.rotationalMatrix);
+			localProjectile.position.x = this.position.x;
+			localProjectile.position.y = this.position.y;
+			localProjectile.position.z = this.position.z;
+			localProjectile.setSpeed(3);
+			localProjectile.setMatrix(this.matrix);
+			scene.add(localProjectile);
+			this.firedProjectiles.push(localProjectile);
+			socket.emit("new projectile", {id: localProjectile.id, projectileMatrix: this.matrix});
 }
-
-Ship.prototype.shoot = function(){
-	var fireBullet = this.fireBullet();
-	
-}
-
 
 
 Ship.prototype.respawn = function(){
-	this.position.set(5, 5, 2);
+	this.position.set(randomNumber(5, 1), randomNumber(5, 1), randomNumber(5, 1) );
+	this.health = 100;
 }

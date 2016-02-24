@@ -7,6 +7,7 @@ socket.on("disconnect", onSocketDisconnect);
 socket.on("new player", onNewPlayer);
 socket.on("update player", onUpdatePlayer);
 socket.on("remove player", onRemovePlayer);
+socket.on("new projectile", onNewProjectile);
 
 
 var scene = new THREE.Scene();
@@ -14,27 +15,46 @@ var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeig
 
 var renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.shadowMap.enabled = true;
 document.body.appendChild( renderer.domElement );
 
+var light = new THREE.DirectionalLight(0xf6e86d, 1);
+light.position.set(1, 100, 2);
+scene.add(light);
+
+var lightGlobal = new THREE.HemisphereLight( 0xffffbb, 0x080820, 0.8);
+scene.add( lightGlobal );
+
 var geometryBox = new THREE.BoxGeometry( 1, 1, 1);
-var materialBox = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+var materialBox = new THREE.MeshLambertMaterial( { color: 0x00ff00 } );
+
+var geometrySphere = new THREE.SphereGeometry( 0.2, 32, 32 );
+var materialSphere = new THREE.MeshBasicMaterial( { color: 0xCC0000 } );
 
 function randomNumber(MAX, MIN){
 	var number = Math.floor((Math.random() * MAX) + MIN);
 	return number;
-}
+};
 
 
 var cube = new Ship( geometryBox, materialBox );
 cube.setPlayerID(randomNumber(9999, 1000));
 cube.position.set(randomNumber(5, 1), randomNumber(5, 1), randomNumber(5, 1) );
-cube.setHealth(23);
+cube.setHealth(100);
 cube.firedProjectiles = [];
-//cube.setMatrix();
 cube.setSpeed(0.5);
+cube.receiveShadow = true;
+cube.castShadow = true;
 cube.add(camera);
 scene.add( cube );
+camera.position.y = 1.5;
 camera.position.z = 5;
+
+var loader = new THREE.ObjectLoader();
+         loader.load( 'models/ship.json', function ( object ) {
+         scene.add( object );
+
+ });
 
 var inputObj = new InputController();
 var keysDown = [];
@@ -49,7 +69,11 @@ addEventListener("keydown", function (e) {
 document.addEventListener("mousemove", function(e) {
 		cube.rotateY (e.movementX * 0.01 *(-1));
 		cube.rotateX (e.movementY * 0.01 *(-1));
-})
+});
+
+document.getElementsByTagName("canvas")[0].addEventListener("click", function() {
+	this.requestPointerLock();
+}, false);
 
 $( "body" ).mousedown(function() {	
 		cube.fireBullet();
@@ -60,8 +84,35 @@ var render = function () {
 	getInput();
 	socket.emit("update player", {playerMatrix: cube.matrix});
 	moveProjectiles();
+	moveRemoteProj();
+	checkCollision();
+	updateHUD();
 	renderer.render(scene, camera);
 };
+
+function updateHUD(){
+	$("#healthText").text("Health: " + cube.getHealth() + "%");
+}
+
+function checkCollision(){
+	var localBox = new THREE.Box3().setFromObject(cube);
+	var bulletBox;
+	var collision;
+	if(remoteProjectiles.length > 0){
+		for(var i = 0; i < remoteProjectiles.length; i++){
+			bulletBox = new THREE.Box3().setFromObject(remoteProjectiles[i]);
+			collision = localBox.isIntersectionBox(bulletBox);
+			
+				if (collision == true){
+					cube.takeDamage(10);
+				}
+		}
+	}
+	
+	if(cube.getHealth() <= 0){
+		cube.respawn();
+	}
+}
 
 function getInput(){
 	if ("87" in keysDown){// W
@@ -84,12 +135,12 @@ function getInput(){
 	}
 	if("84" in keysDown){ //T for testing
 		console.log("remoteShips:" + remoteShips.length);
+		console.log("remote projectiles:" + remoteProjectiles.length);
 	}
 	if("73" in keysDown){ //I for ID testing
 		console.log("local ship ID:" + cube.getPlayerID());
 		console.log("remote ship ID:" + remoteShips[0].getPlayerID());
 	}
-
 }
 
 function onSocketConnected() {
@@ -99,18 +150,16 @@ function onSocketConnected() {
 }
 function onSocketDisconnect(data) {
     console.log("Disconnected from socket server: " + data.id);
-	
 };
 
 function onNewPlayer(data) {
     console.log("New player connected: "+data.id);
 	var newShip = new Ship(geometryBox, materialBox);
-	
+	newShip.id = data.id;
 	newShip.matrixAutoUpdate = false;
 	newShip.matrix = data.playerMatrix;
- console.log("coord: " + data.x + " " + data.y + " " + data.z);
 	scene.add(newShip);
-	console.log("PUSDH NEW SHIP");
+
 	remoteShips.push(newShip);
 };
 
@@ -132,15 +181,15 @@ function onRemovePlayer(data){
 	remoteShips.splice(remoteShips.indexOf(removePlayer), 1);
 }
 
-function onNewBullet(data) {
-	var sphereMaterial = new THREE.MeshLambertMaterial( { color: "#" + Math.random().toString(16).slice(2, 8)} );
-	var newProjectile = new Projectile(sphereGeo, sphereMaterial);
+function onNewProjectile(data) {
+	var newProjectile = new Projectile(geometrySphere, materialSphere);
 	
 	newProjectile.id = data.idBul;
-	newProjectile.setX(data.xBul);
-	newBullet.setMatrix(data.matrix);
-	scene.add(newBullet);
-	remoteProjectiles.push(newBullet);
+	newProjectile.matrixAutoUpdate = false;
+	newProjectile.applyMatrix(data.projectileMatrix);
+	scene.add(newProjectile);
+	
+	remoteProjectiles.push(newProjectile);
 };
 
 function shipById(id) {
@@ -167,21 +216,23 @@ function projectileById(id) {
 
 function moveRemoteProj(){
 	for(var i = 0; i< remoteProjectiles.length; i++){
-		remoteProjectiles[i].move(0, 0, -3);
+		
+		remoteProjectiles[i].translateZ(-2);
+		remoteProjectiles[i].updateMatrix();
 	}
 }
 
 
 function moveProjectiles(){
 	for(var i = 0; i < cube.firedProjectiles.length; i++){
-		cube.firedProjectiles[i].move(0, 0, -1);
+		cube.firedProjectiles[i].translateZ(-2);
 	}
 }
 
 function generateDebris(){
 	for(i = 0; i < 1000; i++){
 		var debrisGeometry = new THREE.BoxGeometry( 0.5, 0.5, 0.5 );
-		var debrisMaterial = new THREE.MeshBasicMaterial( { color: 0x0000CC } );
+		var debrisMaterial = new THREE.MeshLambertMaterial( { color: 0x0000CC } );
 		
 		var randomX = ( Math.random() - 0.5 ) * 500;
 		var randomY = ( Math.random() - 0.5 ) * 500;
@@ -193,6 +244,8 @@ function generateDebris(){
 		debris.position.z = randomZ;
 		debris.rotation.x += randomX;
 		debris.rotation.y += randomY;
+		debris.receiveShadow = true;
+		debris.castShadow = true;
 		scene.add( debris );
 	};
 }

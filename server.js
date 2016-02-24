@@ -5,9 +5,11 @@ var io = require('socket.io')(http);
 
 var RemoteEntity = require("./RemoteEntity").RemoteEntity;
 var players;
+var projectiles;
 
 function init(){
 	players = [];
+	projectiles = [];
 	app.use(express.static(__dirname + '/public'));
 
 	app.get('/', function(req, res){
@@ -31,6 +33,7 @@ function onSocketConnection(socket) {
     socket.on("disconnect", onSocketDisconnect);
     socket.on("new player", onNewPlayer);
     socket.on("update player", onUpdatePlayer);
+	socket.on("new projectile", onNewProjectile);
 };
 
 function onSocketDisconnect() {
@@ -49,7 +52,6 @@ function onSocketDisconnect() {
 
 
 function onNewPlayer(data) {
-	console.log("new player (server)");
 	var newPlayer = new RemoteEntity(data.x, data.y, data.z);
 	newPlayer.setMatrix(data.playerMatrix);
 	console.log("coord(server): " + data.x + " " + data.y + " " + data.z);
@@ -78,12 +80,32 @@ function onUpdatePlayer(data) {
 	this.broadcast.emit("update player", {id: movePlayer.id, playerMatrix: movePlayer.getMatrix()});
 };
 
+function onNewProjectile(data) {
+	
+	var newProjectile = new RemoteEntity(data.x, data.y, data.z);
+	newProjectile.setMatrix(data.projectileMatrix);
+	newProjectile.id = this.id;
+	this.broadcast.emit("new projectile", {id: newProjectile.id, projectileMatrix: newProjectile.getMatrix()});
+
+	projectiles.push(newProjectile);
+};
+
 
 function playerById(id) {
-    var i;
+    var i; 
     for (i = 0; i < players.length; i++) {
         if (players[i].id == id)
             return players[i];
+    };
+
+    return false;
+};
+
+function projectileById(id) {
+    var i; 
+    for (i = 0; i < projectiles.length; i++) {
+        if (projectiles[i].id == id)
+            return projectiles[i];
     };
 
     return false;
