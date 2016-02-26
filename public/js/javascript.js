@@ -36,7 +36,7 @@ scene.add( lightGlobal );
 var geometryBox = new THREE.BoxGeometry( 1, 1, 1);
 var materialBox = new THREE.MeshLambertMaterial( { color: 0x00ff00 } );
 
-var geometrySphere = new THREE.SphereGeometry( 0.2, 32, 32 );
+var geometrySphere = new THREE.SphereGeometry( 0.2, 64, 64 );
 var materialSphere = new THREE.MeshBasicMaterial( { color: 0xCC0000 } );
 
 var geoEarth = new THREE.SphereGeometry( 1000, 32, 32 );
