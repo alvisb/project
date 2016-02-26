@@ -8,11 +8,12 @@ socket.on("new player", onNewPlayer);
 socket.on("update player", onUpdatePlayer);
 socket.on("remove player", onRemovePlayer);
 socket.on("new projectile", onNewProjectile);
+socket.on("generate asteroids", onGenerateAsteroids);
 
 
 var scene = new THREE.Scene();
 var sceneCSS = new THREE.Scene();
-var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+var camera = new THREE.PerspectiveCamera( 55, window.innerWidth/window.innerHeight, 0.1, 5000 );
 
 var renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth, window.innerHeight );
@@ -68,31 +69,47 @@ cube.receiveShadow = true;
 cube.castShadow = true;
 cube.add(camera);
 scene.add( cube );
-camera.position.y = 1.5;
-camera.position.z = 5;
+camera.position.y = 4.5;
+camera.position.z = 15;
+
+var stationMesh = new THREE.Mesh(
+    geometryBox,
+    materialBox
+  );
+  stationMesh.receiveShadow = true;
+stationMesh.castShadow = true;
+  stationMesh.position.x = 800;
+  scene.add(stationMesh);
+  
 
 var tempGeo, tempMat;
-var rockGeo, rockMat;
 
 var loader = new THREE.JSONLoader(); // init the loader util
 
 loader.load('models/fighter.json', function (geometry) {
   // create a new material
-  var material = new THREE.MeshLambertMaterial({
-    map: THREE.ImageUtils.loadTexture('/img/texture.jpg'),  // specify and load the texture
-  });
+  var material = new THREE.MeshLambertMaterial( { color: 0xCCCCCC } );
   
-  // create a mesh with models geometry and material
-  var playerMesh = new THREE.Mesh(
-    geometry,
-    material
-  );
   tempGeo = geometry;
   tempMat = material;
   cube.geometry = geometry;
   cube.material = material;
-  cube.scale = 0.2;
+  
 });
+
+loader.load('models/station.json', function (geometry) {
+  // create a new material
+  var material = new THREE.MeshLambertMaterial({
+    map: THREE.ImageUtils.loadTexture('/img/stationTexture.jpg'),  // specify and load the texture
+  });
+  
+  // create a mesh with models geometry and material
+  
+
+  stationMesh.geometry = geometry;
+  stationMesh.material = material;
+});
+
 
 var urls = [
   'img/box_right1.jpg',
@@ -148,6 +165,34 @@ addEventListener("keydown", function (e) {
 document.addEventListener("mousemove", function(e) {
 		cube.rotateY (e.movementX * 0.01 *(-1));
 		cube.rotateX (e.movementY * 0.01 *(-1));
+		/* if(e.movementY > 0.5 && camera.position.y < 2){
+			camera.position.y += 0.01;
+		}
+		if(e.movementY < -0.5 && camera.position.y > -1){
+			camera.position.y -= 0.01;
+		}
+		if(e.movementX > 0.5 && camera.position.x < 2){
+			camera.position.x += 0.01;
+		}
+		if(e.movementX < -0.5 && camera.position.x > -2){
+			camera.position.x -= 0.01;
+		}
+		 */
+		/* if(e.movementX > 0.5){
+			//cube.rotateY(-0.005);
+			cube.rotateZ(-0.005);
+		}
+		if(e.movementX < -0.5){
+			//cube.rotateY(0.005);
+			cube.rotateZ(0.005);
+		}
+		if(e.movementY > 0.5){
+			cube.rotateX(0.005);
+		}
+		if(e.movementY < -0.5){
+			cube.rotateX(-0.005);
+		} */
+		
 });
 
 document.getElementsByTagName("canvas")[0].addEventListener("click", function() {
@@ -182,16 +227,21 @@ function test(){
 
 function updateHUD(){
 	$("#healthText").text("Health: " + cube.getHealth() + "%");
+	$("#infoText").text("X: " + Math.floor(cube.position.x));
+	$("#infoText2").text("Y: " + Math.floor(cube.position.y));
+	$("#infoText3").text("Z: " + Math.floor(cube.position.z));
 }
 
 function positionScene(){
-	earth.position.x = cube.position.x + 1600;
+	earth.position.x = cube.position.x + 1800;
 	earth.position.y = cube.position.y + 10;
 	earth.position.z = cube.position.z + 5;
 	
 	skybox.position.x = cube.position.x;
 	skybox.position.y = cube.position.y;
 	skybox.position.z = cube.position.z;
+	
+	stationMesh.rotation.z += 0.001;
 }
 
 function checkCollision(){
@@ -227,11 +277,17 @@ function getInput(){
 	if ("68" in keysDown){// D
 		cube.move(1, 0, 0);
 	}
+	if ("81" in keysDown){// Q
+		cube.rotateZ(0.05);
+	}
+	if ("69" in keysDown){// E
+		cube.rotateZ(-0.05);
+	}
 	if ("16" in keysDown){// SHIFT
-		cube.setSpeed(1.5);
+		cube.setSpeed(3);
 	}
 	else{
-		cube.setSpeed(0.5);
+		cube.setSpeed(1);
 	}
 	if("84" in keysDown){ //T for testing
 		console.log("remoteShips:" + remoteShips.length);
@@ -290,6 +346,10 @@ function onRemovePlayer(data){
 }
 
 function onNewProjectile(data) {
+	if(remoteProjectiles.length > 20){
+			scene.remove(remoteProjectiles[0]); // stop rendering bullet
+			remoteProjectiles.shift(); //remove bullet from the array
+		}
 	var newProjectile = new Projectile(geometrySphere, materialSphere);
 	
 	newProjectile.id = data.idBul;
@@ -337,15 +397,15 @@ function moveProjectiles(){
 	}
 }
 
-function generateDebris(){
+function onGenerateAsteroids(data){
 	var loader2 = new THREE.JSONLoader(); // init the loader util
 	loader2.load('models/rock.json', function (geometry) {
   // create a new material
 	var material = new THREE.MeshLambertMaterial({
-		map: THREE.ImageUtils.loadTexture('/img/rock.jpg'),  // specify and load the texture
+		map: THREE.ImageUtils.loadTexture('/img/meteor.jpg'),  // specify and load the texture
 	});
 	
-	for(i = 0; i < 100; i++){
+	for(i = 0; i < data.asteroidArray.length; i++){
 		//var debrisGeometry = new THREE.BoxGeometry( 0.5, 0.5, 0.5 );
 		//var debrisMaterial = new THREE.MeshLambertMaterial( { color: 0x0000CC } );
 		
@@ -354,12 +414,19 @@ function generateDebris(){
 		var randomZ = randomNumber(1000, -300);
 		
 		var debris = new THREE.Mesh( geometry, material );
-		debris.position.x = randomX;
-		debris.position.y = randomY;
-		debris.position.z = randomZ;
-		debris.rotation.x += randomX;
-		debris.rotation.y += randomY;
-		debris.scale.set(randomNumber(10, 4), randomNumber(10, 4), randomNumber(10, 4));
+		debris.position.x = data.asteroidArray[i].posX;
+		debris.position.y = data.asteroidArray[i].posY;
+		debris.position.z = data.asteroidArray[i].posZ;
+		
+		debris.rotation.x = data.asteroidArray[i].rotX;
+		debris.rotation.y = data.asteroidArray[i].rotY;
+		debris.rotation.z = data.asteroidArray[i].rotZ;
+		
+		debris.scale.x = data.asteroidArray[i].scaleX;
+		debris.scale.y = data.asteroidArray[i].scaleY;
+		debris.scale.z = data.asteroidArray[i].scaleZ;
+		
+		//debris.scale.set(randomNumber(10, 4), randomNumber(10, 4), randomNumber(10, 4));
 		debris.receiveShadow = true;
 		debris.castShadow = true;
 		scene.add( debris );
@@ -369,5 +436,5 @@ function generateDebris(){
 	});
 	
 }
-generateDebris();
+socket.emit("generate asteroids");
 render();

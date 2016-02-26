@@ -6,6 +6,7 @@ var io = require('socket.io')(http);
 var RemoteEntity = require("./RemoteEntity").RemoteEntity;
 var players;
 var projectiles;
+var asteroids = [];
 
 function init(){
 	players = [];
@@ -19,10 +20,14 @@ function init(){
 	http.listen(process.env.PORT || 3000, function(){
 	  console.log('listening on *:3000'  + process.env.PORT);
 	});
-
+	createAsteroidData()
 	setEventHandlers();
 }
 
+function randomNumber(MAX, MIN){
+	var number = Math.floor((Math.random() * MAX) + MIN);
+	return number;
+};
 
 var setEventHandlers = function() {
     io.on("connection", onSocketConnection);
@@ -34,6 +39,7 @@ function onSocketConnection(socket) {
     socket.on("new player", onNewPlayer);
     socket.on("update player", onUpdatePlayer);
 	socket.on("new projectile", onNewProjectile);
+	socket.on("generate asteroids", onGenerateAsteroids);
 };
 
 function onSocketDisconnect() {
@@ -49,6 +55,34 @@ function onSocketDisconnect() {
 	players.splice(players.indexOf(removePlayer), 1);
 	this.broadcast.emit("remove player", {id: this.id});
 };
+
+function createAsteroidData(){
+	for(i = 0; i < 100; i++){
+		//var debrisGeometry = new THREE.BoxGeometry( 0.5, 0.5, 0.5 );
+		//var debrisMaterial = new THREE.MeshLambertMaterial( { color: 0x0000CC } );
+		var asteroid = new Object();
+		
+		asteroid.posX = randomNumber(1000, -300);
+		asteroid.posY = randomNumber(1000, -300);
+		asteroid.posZ = randomNumber(1000, -300);
+		
+		asteroid.rotX = randomNumber(10, 1);
+		asteroid.rotY = randomNumber(10, 1);
+		asteroid.rotZ = randomNumber(10, 1);
+		
+		asteroid.scaleX = randomNumber(10, 3);
+		asteroid.scaleY = randomNumber(10, 3);
+		asteroid.scaleZ = randomNumber(10, 3);
+		
+		asteroids.push(asteroid);
+	};
+}
+
+function onGenerateAsteroids(){
+	
+	this.emit("generate asteroids", {asteroidArray: asteroids});
+  
+}
 
 
 function onNewPlayer(data) {
@@ -87,7 +121,7 @@ function onNewProjectile(data) {
 	newProjectile.id = this.id;
 	this.broadcast.emit("new projectile", {id: newProjectile.id, projectileMatrix: newProjectile.getMatrix()});
 
-	projectiles.push(newProjectile);
+	//projectiles.push(newProjectile);
 };
 
 
