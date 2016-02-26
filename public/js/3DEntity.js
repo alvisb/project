@@ -5,7 +5,7 @@ function Entity3D(){
 		THREE.Mesh.prototype.describe.call(this);
 		this.id = "1234";
 		this.rotationalMatrix =  new THREE.Matrix4();
-		this.speed = 0.5;
+		this.speed = 0.01;
 		this.damage = 0;
 		this.boundingBox;
 		this.position = new THREE.Vector3();

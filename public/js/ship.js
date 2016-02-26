@@ -41,7 +41,11 @@ Ship.prototype.getProjectiles = function(){
 }
 
 Ship.prototype.fireBullet = function(){
-	var geometry = new THREE.SphereGeometry( 0.2, 32, 32 );
+	if(this.firedProjectiles.length > 20){
+			scene.remove(this.firedProjectiles[0]); // stop rendering bullet
+			this.firedProjectiles.shift(); //remove bullet from the array
+		}
+	var geometry = new THREE.SphereGeometry( 0.2, 8, 8 );
 		var material = new THREE.MeshBasicMaterial( { color: 0xCC0000 } );
 		var localProjectile = new Projectile(geometry, material);
 			//localProjectile.setRotationFromMatrix(this.rotationalMatrix);
