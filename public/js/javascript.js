@@ -10,6 +10,27 @@ socket.on("remove player", onRemovePlayer);
 socket.on("new projectile", onNewProjectile);
 socket.on("generate asteroids", onGenerateAsteroids);
 
+var isMobile = {
+    Android: function() {
+        return navigator.userAgent.match(/Android/i);
+    },
+    BlackBerry: function() {
+        return navigator.userAgent.match(/BlackBerry/i);
+    },
+    iOS: function() {
+        return navigator.userAgent.match(/iPhone|iPad|iPod/i);
+    },
+    Opera: function() {
+        return navigator.userAgent.match(/Opera Mini/i);
+    },
+    Windows: function() {
+        return navigator.userAgent.match(/IEMobile/i) || navigator.userAgent.match(/WPDesktop/i);
+    },
+    any: function() {
+        return (isMobile.Android() || isMobile.BlackBerry() || isMobile.iOS() || isMobile.Opera() || isMobile.Windows());
+    }
+};
+
 
 var scene = new THREE.Scene();
 var sceneCSS = new THREE.Scene();
@@ -76,10 +97,10 @@ var stationMesh = new THREE.Mesh(
     geometryBox,
     materialBox
   );
-  stationMesh.receiveShadow = true;
+stationMesh.receiveShadow = true;
 stationMesh.castShadow = true;
-  stationMesh.position.x = 800;
-  scene.add(stationMesh);
+stationMesh.position.x = 800;
+scene.add(stationMesh);
   
 
 var tempGeo, tempMat;
@@ -436,5 +457,6 @@ function onGenerateAsteroids(data){
 	});
 	
 }
+if( isMobile.any() ) alert('Mobile');
 socket.emit("generate asteroids");
 render();
