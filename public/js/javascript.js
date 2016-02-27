@@ -265,10 +265,12 @@ function positionScene(){
 	earth.position.y = cube.position.y + 10;
 	earth.position.z = cube.position.z + 5;
 	
-	skybox.position.x = cube.position.x;
-	skybox.position.y = cube.position.y;
-	skybox.position.z = cube.position.z;
-	
+	if(!isMobile.any()){
+		skybox.position.x = cube.position.x;
+		skybox.position.y = cube.position.y;
+		skybox.position.z = cube.position.z;
+	}
+
 	stationMesh.rotation.z += 0.001;
 }
 
