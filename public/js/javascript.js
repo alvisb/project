@@ -34,7 +34,7 @@ var isMobile = {
 
 var scene = new THREE.Scene();
 var sceneCSS = new THREE.Scene();
-var camera = new THREE.PerspectiveCamera( 55, window.innerWidth/window.innerHeight, 0.1, 5000 );
+var camera = new THREE.PerspectiveCamera( 55, window.innerWidth/window.innerHeight, 0.1, 30000 );
 
 var renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth, window.innerHeight );
@@ -74,10 +74,14 @@ earth.position.set(160, -20, 60);
 earth.rotation.set(5, 2, 5);
 scene.add(earth);
 
+var asteroids = [];
+
 function randomNumber(MAX, MIN){
 	var number = Math.floor((Math.random() * MAX) + MIN);
 	return number;
 };
+
+var particleSystem;
 
 
 var cube = new Ship( geometryBox, materialBox );
@@ -99,11 +103,15 @@ var stationMesh = new THREE.Mesh(
   );
 stationMesh.receiveShadow = true;
 stationMesh.castShadow = true;
-stationMesh.position.x = 800;
+stationMesh.position.x = 200;
 scene.add(stationMesh);
   
 
 var tempGeo, tempMat;
+
+var orbit = new THREE.Object3D();
+orbit.position.x = 200;
+scene.add( orbit );
 
 var loader = new THREE.JSONLoader(); // init the loader util
 
@@ -238,6 +246,7 @@ $( "body" ).mousedown(function() {
 
 var render = function () {
 	requestAnimationFrame( render );
+	test();
 	positionScene();
 	getInput();
 	socket.emit("update player", {playerMatrix: cube.matrix});
@@ -249,8 +258,28 @@ var render = function () {
 	renderer.render(scene, camera);
 };
 
+var G = 6; // m3 kg-1 s-2
+
+
 function test(){
+	//moveParticles();
+	//orbit.rotation.z += 0.0001;
+	moveAsteroids();
 	
+}
+
+
+function moveAsteroids(){
+	
+	for(var i = 0; i < asteroids.length; i++){
+		var distance = asteroids[i].position.distanceTo(orbit.position);
+		asteroids[i].position.x += asteroids[i].speed + 5;
+		asteroids[i].rotation.y += asteroids[i].rotAmount * 0.001;
+		
+		if(asteroids[i].position.x > 30000){
+			asteroids[i].position.x = - 30000;
+		}
+	}
 }
 
 function updateHUD(){
@@ -272,6 +301,7 @@ function positionScene(){
 	}
 
 	stationMesh.rotation.z += 0.001;
+	socket.emit("update asteroids", {});
 }
 
 function checkCollision(){
@@ -314,14 +344,13 @@ function getInput(){
 		cube.rotateZ(-0.05);
 	}
 	if ("16" in keysDown){// SHIFT
-		cube.setSpeed(3);
+		cube.setSpeed(5);
 	}
 	else{
-		cube.setSpeed(1);
+		cube.setSpeed(2);
 	}
 	if("84" in keysDown){ //T for testing
-		console.log("remoteShips:" + remoteShips.length);
-		console.log("remote projectiles:" + remoteProjectiles.length);
+		orbit.position.x += 10;
 	}
 	if("73" in keysDown){ //I for ID testing
 		console.log("local ship ID:" + cube.getPlayerID());
@@ -415,7 +444,7 @@ function projectileById(id) {
 function moveRemoteProj(){
 	for(var i = 0; i< remoteProjectiles.length; i++){
 		
-		remoteProjectiles[i].translateZ(-4);
+		remoteProjectiles[i].translateZ(-20);
 		remoteProjectiles[i].updateMatrix();
 	}
 }
@@ -423,7 +452,7 @@ function moveRemoteProj(){
 
 function moveProjectiles(){
 	for(var i = 0; i < cube.firedProjectiles.length; i++){
-		cube.firedProjectiles[i].translateZ(-4);
+		cube.firedProjectiles[i].translateZ(-20);
 	}
 }
 
@@ -436,30 +465,31 @@ function onGenerateAsteroids(data){
 	});
 	
 	for(i = 0; i < data.asteroidArray.length; i++){
-		//var debrisGeometry = new THREE.BoxGeometry( 0.5, 0.5, 0.5 );
-		//var debrisMaterial = new THREE.MeshLambertMaterial( { color: 0x0000CC } );
+		var pivot = new THREE.Object3D();
+		pivot.rotation.z = 4 * Math.PI / 3;
+		orbit.add(pivot);
+		var newAsteroid = new THREE.Mesh( geometry, material );
+		newAsteroid.position.x = data.asteroidArray[i].posX;
+		newAsteroid.position.y = data.asteroidArray[i].posY;
+		newAsteroid.position.z = data.asteroidArray[i].posZ;
 		
-		var randomX = randomNumber(1000, -300);
-		var randomY = randomNumber(1000, -300);
-		var randomZ = randomNumber(1000, -300);
+		newAsteroid.rotation.x = data.asteroidArray[i].rotX;
+		newAsteroid.rotation.y = data.asteroidArray[i].rotY;
+		newAsteroid.rotation.z = data.asteroidArray[i].rotZ;
 		
-		var debris = new THREE.Mesh( geometry, material );
-		debris.position.x = data.asteroidArray[i].posX;
-		debris.position.y = data.asteroidArray[i].posY;
-		debris.position.z = data.asteroidArray[i].posZ;
+		newAsteroid.scale.x = data.asteroidArray[i].scaleX;
+		newAsteroid.scale.y = data.asteroidArray[i].scaleY;
+		newAsteroid.scale.z = data.asteroidArray[i].scaleZ;
 		
-		debris.rotation.x = data.asteroidArray[i].rotX;
-		debris.rotation.y = data.asteroidArray[i].rotY;
-		debris.rotation.z = data.asteroidArray[i].rotZ;
-		
-		debris.scale.x = data.asteroidArray[i].scaleX;
-		debris.scale.y = data.asteroidArray[i].scaleY;
-		debris.scale.z = data.asteroidArray[i].scaleZ;
-		
-		//debris.scale.set(randomNumber(10, 4), randomNumber(10, 4), randomNumber(10, 4));
-		debris.receiveShadow = true;
-		debris.castShadow = true;
-		scene.add( debris );
+		newAsteroid.rotAmount = data.asteroidArray[i].rotAmount;
+		newAsteroid.speed = data.asteroidArray[i].speed;
+
+		//newAsteroid.scale.set(randomNumber(10, 4), randomNumber(10, 4), randomNumber(10, 4));
+		newAsteroid.receiveShadow = true;
+		newAsteroid.castShadow = true;
+		//pivot.add(asteroid);
+		scene.add( newAsteroid );
+		asteroids.push(newAsteroid);
 	};
   
 
@@ -467,5 +497,35 @@ function onGenerateAsteroids(data){
 	
 }
 
+function particleTest(){
+	var particleCount = 50000;
+	var particleGeo = new THREE.Geometry();
+	var particleMat = new THREE.PointsMaterial( {color: 0xCC0000, size: 5, opacity: 0.5, sizeAttenuation: false, transorbit: true } );
+
+	for (var p = 0; p < particleCount; p++) {
+
+		  // create a particle with random
+		  // position values, -250 -> 250
+		  var pX = Math.random() * 50 - 25,
+				  pY = Math.random() * 50 - 25,
+				  pZ = Math.random() * 50 - 25,
+				  particle = new THREE.Vector3(pX, pY, pZ);
+
+		  // add it to the geometry
+		  particleGeo.vertices.push(particle);
+	}
+
+// create the particle system
+	particleSystem = new THREE.Points( particleGeo, particleMat );
+
+	// add it to the scene
+	scene.add(particleSystem);
+}
+
+function moveParticles(){
+	//particleSystem.rotation.y += 0.001;
+}
+
+//particleTest();
 socket.emit("generate asteroids");
 render();

@@ -2,6 +2,7 @@ var express = require('express');
 var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
+var gameloop = require('node-gameloop');
 
 var RemoteEntity = require("./RemoteEntity").RemoteEntity;
 var players;
@@ -22,6 +23,7 @@ function init(){
 	});
 	createAsteroidData()
 	setEventHandlers();
+	
 }
 
 function randomNumber(MAX, MIN){
@@ -57,25 +59,38 @@ function onSocketDisconnect() {
 };
 
 function createAsteroidData(){
-	for(i = 0; i < 100; i++){
+	for(i = 0; i < 1000; i++){
 		//var debrisGeometry = new THREE.BoxGeometry( 0.5, 0.5, 0.5 );
 		//var debrisMaterial = new THREE.MeshLambertMaterial( { color: 0x0000CC } );
 		var asteroid = new Object();
 		
-		asteroid.posX = randomNumber(1000, -300);
-		asteroid.posY = randomNumber(1000, -300);
-		asteroid.posZ = randomNumber(1000, -300);
+		asteroid.posX = randomNumber(65000, -65000);
+		asteroid.posY = randomNumber(10000, -5000);
+		asteroid.posZ = randomNumber(10000, -5000);
 		
 		asteroid.rotX = randomNumber(10, 1);
 		asteroid.rotY = randomNumber(10, 1);
 		asteroid.rotZ = randomNumber(10, 1);
 		
-		asteroid.scaleX = randomNumber(10, 3);
-		asteroid.scaleY = randomNumber(10, 3);
-		asteroid.scaleZ = randomNumber(10, 3);
+		asteroid.scaleX = randomNumber(100, 30);
+		asteroid.scaleY = randomNumber(100, 30);
+		asteroid.scaleZ = randomNumber(100, 30);
+		
+		asteroid.rotAmount = randomNumber(5, 1);
+		asteroid.speed = randomNumber(15, 1) * 0.1;
 		
 		asteroids.push(asteroid);
 	};
+}
+
+function updateAsteroids(){
+	var loop = true;
+	while(loop == true){
+		for(var i = 0; i < asteroids.length; i++){
+			asteroids[i].rotX += 0.01;
+			asteroids[i].posX += asteroids[i].speed;
+		}
+	}
 }
 
 function onGenerateAsteroids(){
