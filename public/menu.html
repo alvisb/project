@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="style.css">
+	<meta charset="UTF-8">
+	<title>Register</title>
+</head>
+<script src="/socket.io/socket.io.js"></script> 
+<body background="img/menuBG.jpg">
+<script src="js/jquery.js" type="text/javascript"></script>
+<script src="js/mainMenu.js" type="text/javascript"></script>
+		<h1>Menu</h1>
+		<button class="button" name="joinRoom" onclick="switchFrame(this.name)">Join a room</button></br>
+		<button class="button" name="createRoom" onclick="switchFrame(this.name)">Create a room</button></br>
+		<button class="button" name="viewStats" onclick="switchFrame(this.name)">View stats</button></br>
+		<button class="button" name="selectShip" onclick="switchFrame(this.name)">Select ship</button></br>
+		<!-- <iframe id="frame" src="joinRoom.html"></iframe> -->
+		<div id="mainDiv">
+			<div class="joinRoom">
+				<h1>Rooms: </h1>
+				<div class="room-container" name="roomContainerDiv">
+					<p class="roomPara">Room 1        (1/6)</p><input type="button" class="buttonJoin" value="Join"></input>
+				</div>
+			</div>
+			<div class="createRoom">
+				<h1>Create a new room: </h1></br>
+				<h2>Room name:</h2>
+				<input type="text" class="txtBox" name="roomName"></input>
+				<input type="button" class="btnCreate" value="Create" name="btnCreate" onclick="createRoom()"></input>
+				
+			</div>
+			<div class="viewStats">
+				<h1>View statistics </h1></br>
+				<h2>Kills: 2</h2></br>
+				<h2>Deaths: 3</h2></br>
+				<h2>K/D ratio: 0.66</h2></br>
+				<h2>Total time played: 00h03m</h2></br>
+				
+			</div>
+			<div class="selectShip">
+				<h1>Select ship </h1>
+				
+			</div>
+			<div class="joinedRoom">
+				<h1 class="roomHeader">Joined room name</h1>
+				
+			</div>
+		</div>
+</body>
+
+</html>

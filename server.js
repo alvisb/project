@@ -3,14 +3,28 @@ var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 var gameloop = require('node-gameloop');
+var MongoClient = require('mongodb').MongoClient;
 
 var RemoteEntity = require("./RemoteEntity").RemoteEntity;
-var players;
+var Player = require("./public/js/Player").Player;
+var playerShips;
+var players = [];
+var existingRooms = [];
 var projectiles;
 var asteroids = [];
+var port = 3000;
+
+//HARDCODED DATA FOR TESTING
+
+var testPlayer = new Player();
+testPlayer.setUsername("alvisss");
+testPlayer.setID("1234");
+testPlayer.password = "password"
+
+//HARDCODED DATA FOR TESTING
 
 function init(){
-	players = [];
+	playerShips = [];
 	projectiles = [];
 	app.use(express.static(__dirname + '/public'));
 
@@ -18,11 +32,20 @@ function init(){
 	  res.sendFile('index.html');
 	});
 
-	http.listen(process.env.PORT || 3000, function(){
-	  console.log('listening on *:3000'  + process.env.PORT);
+	http.listen(process.env.PORT || port, function(){
+	  console.log('listening on port: ' + port);
 	});
 	createAsteroidData()
 	setEventHandlers();
+	
+	MongoClient.connect("mongodb://localhost:27017/exampleDb", function(err, db) {
+	if(!err) {
+		console.log("We are connected");
+	}
+	
+	db.createCollection('test', {strict:true}, function(err, collection) {});
+	
+});
 	
 }
 
@@ -36,16 +59,35 @@ var setEventHandlers = function() {
 };
 
 function onSocketConnection(socket) {
-    console.log("New player has connected (server): "+socket.id);
+    console.log("New player has connected: "+socket.id);
+	checkExistingRooms();
     socket.on("disconnect", onSocketDisconnect);
     socket.on("new player", onNewPlayer);
     socket.on("update player", onUpdatePlayer);
 	socket.on("new projectile", onNewProjectile);
 	socket.on("generate asteroids", onGenerateAsteroids);
+	socket.on("update asteroids", onUpdateAsteroids);
+	//ROOMS
+	socket.on("create room", onCreateRoom);
 };
 
+function checkExistingRooms(){
+	for (i = 0; i < existingRooms.length; i++) {
+		existingRoom = existingRooms[i];
+		io.emit("add room", {roomName: existingRoom});
+	};
+}
+
+function onCreateRoom(data){
+	this.join(data.roomName);
+	console.log("New player has joined room: "+this.id);
+	console.log("Room: " + data.roomName);
+	this.emit("add room", {roomName: data.roomName});
+	existingRooms.push(data.roomName);
+}
+
 function onSocketDisconnect() {
-    console.log("Player has disconnected (server): "+this.id);
+    console.log("Player has disconnected: "+this.id);
 	
 	var removePlayer = playerById(this.id);
 
@@ -54,12 +96,12 @@ function onSocketDisconnect() {
 		return;
 	};
 
-	players.splice(players.indexOf(removePlayer), 1);
+	playerShips.splice(playerShips.indexOf(removePlayer), 1);
 	this.broadcast.emit("remove player", {id: this.id});
 };
 
 function createAsteroidData(){
-	for(i = 0; i < 1000; i++){
+	for(i = 0; i < 100; i++){
 		//var debrisGeometry = new THREE.BoxGeometry( 0.5, 0.5, 0.5 );
 		//var debrisMaterial = new THREE.MeshLambertMaterial( { color: 0x0000CC } );
 		var asteroid = new Object();
@@ -79,18 +121,14 @@ function createAsteroidData(){
 		asteroid.rotAmount = randomNumber(5, 1);
 		asteroid.speed = randomNumber(15, 1) * 0.1;
 		
+		asteroid.explosive = randomNumber(11, 1);
+		
 		asteroids.push(asteroid);
 	};
 }
 
-function updateAsteroids(){
-	var loop = true;
-	while(loop == true){
-		for(var i = 0; i < asteroids.length; i++){
-			asteroids[i].rotX += 0.01;
-			asteroids[i].posX += asteroids[i].speed;
-		}
-	}
+function onUpdateAsteroids(){
+	
 }
 
 function onGenerateAsteroids(){
@@ -103,16 +141,14 @@ function onGenerateAsteroids(){
 function onNewPlayer(data) {
 	var newPlayer = new RemoteEntity(data.x, data.y, data.z);
 	newPlayer.setMatrix(data.playerMatrix);
-	console.log("coord(server): " + data.x + " " + data.y + " " + data.z);
 	newPlayer.id = this.id;
 	this.broadcast.emit("new player", {id: newPlayer.id, playerMatrix: newPlayer.getMatrix()});
 	var i, existingPlayer;
-	for (i = 0; i < players.length; i++) {
-		console.log("existing player");
-		existingPlayer = players[i];
+	for (i = 0; i < playerShips.length; i++) {
+		existingPlayer = playerShips[i];
 		this.emit("new player", {id: existingPlayer.id, playerMatrix: existingPlayer.getMatrix()});
 	};
-	players.push(newPlayer);
+	playerShips.push(newPlayer);
 };
 
 function onUpdatePlayer(data) {
@@ -142,9 +178,9 @@ function onNewProjectile(data) {
 
 function playerById(id) {
     var i; 
-    for (i = 0; i < players.length; i++) {
-        if (players[i].id == id)
-            return players[i];
+    for (i = 0; i < playerShips.length; i++) {
+        if (playerShips[i].id == id)
+            return playerShips[i];
     };
 
     return false;

@@ -2,6 +2,11 @@ var socket = io();
 var remoteShips = [];
 var remoteProjectiles = [];
 
+var collisionWorker = new Worker("worker.js");
+
+Physijs.scripts.worker = 'physijs_worker.js';
+Physijs.scripts.ammo = 'ammo.js';
+
 socket.on("connect", onSocketConnected);
 socket.on("disconnect", onSocketDisconnect);
 socket.on("new player", onNewPlayer);
@@ -9,6 +14,7 @@ socket.on("update player", onUpdatePlayer);
 socket.on("remove player", onRemovePlayer);
 socket.on("new projectile", onNewProjectile);
 socket.on("generate asteroids", onGenerateAsteroids);
+//socket.on("update asteroids", onUpdateAsteroids);
 
 var isMobile = {
     Android: function() {
@@ -75,6 +81,7 @@ earth.rotation.set(5, 2, 5);
 scene.add(earth);
 
 var asteroids = [];
+var explosions = [];
 
 function randomNumber(MAX, MIN){
 	var number = Math.floor((Math.random() * MAX) + MIN);
@@ -83,20 +90,48 @@ function randomNumber(MAX, MIN){
 
 var particleSystem;
 
-
-var cube = new Ship( geometryBox, materialBox );
-cube.setPlayerID(randomNumber(9999, 1000));
-cube.position.set(randomNumber(5, 1), randomNumber(5, 1), randomNumber(5, 1) );
-cube.setHealth(100);
-cube.firedProjectiles = [];
-cube.setSpeed(0.5);
-cube.receiveShadow = true;
-cube.castShadow = true;
-cube.add(camera);
-scene.add( cube );
+var clock = new THREE.Clock();
+var player = new Ship( geometryBox, materialBox );
+player.setPlayerID(randomNumber(9999, 1000));
+player.position.set(randomNumber(5, 1), randomNumber(5, 1), randomNumber(5, 1) );
+player.setHealth(100);
+player.firedProjectiles = [];
+player.setSpeed(0.5);
+player.receiveShadow = true;
+player.castShadow = true;
+player.add(camera);
+scene.add( player );
 camera.position.y = 4.5;
 camera.position.z = 15;
 
+/* var box = new Physijs.BoxMesh(
+            new THREE.CubeGeometry( 5, 5, 5 ),
+            new THREE.MeshBasicMaterial({ color: 0x888888 }),
+			8
+        );
+        scene.add( box );
+		box.add(camera);
+		
+		
+var plane = new Physijs.BoxMesh(
+      new THREE.CubeGeometry(100, 100, 2, 10, 10),
+      Physijs.createMaterial(
+        new THREE.MeshLambertMaterial({
+          color: 0xeeeeee
+        }),
+        .4,
+        .8
+      ),
+      0
+    );
+
+    plane.rotation.x = -Math.PI / 2;
+    plane.rotation.y = Math.PI / 24;
+	plane.position.y = -5;
+    plane.receiveShadow = true;
+
+    scene.add(plane);
+ */
 var stationMesh = new THREE.Mesh(
     geometryBox,
     materialBox
@@ -121,8 +156,9 @@ loader.load('models/fighter.json', function (geometry) {
   
   tempGeo = geometry;
   tempMat = material;
-  cube.geometry = geometry;
-  cube.material = material;
+  player.geometry = geometry;
+  player.material = material;
+  //box.geometry = geometry;
   
 });
 
@@ -151,11 +187,11 @@ function loadSkybox(){
 	  'img/box_back6.jpg'
 	];
 
-	var cubemap = THREE.ImageUtils.loadTextureCube(urls); // load textures
-	cubemap.format = THREE.RGBFormat;
+	var playermap = THREE.ImageUtils.loadTextureCube(urls); // load textures
+	playermap.format = THREE.RGBFormat;
 
-	var shader = THREE.ShaderLib['cube']; // init cube shader from built-in lib
-	shader.uniforms['tCube'].value = cubemap; // apply textures to shader
+	var shader = THREE.ShaderLib['cube']; // init player shader from built-in lib
+	shader.uniforms['tCube'].value = playermap; // apply textures to shader
 
 	// create shader material
 	var skyBoxMaterial = new THREE.ShaderMaterial( {
@@ -189,18 +225,16 @@ sceneCSS.add(labelObject);
  */
 
 var inputObj = new InputController();
-var keysDown = [];
-addEventListener("keydown", function (e) {
-			keysDown[e.keyCode] = true;
-		});
-
-		addEventListener("keyup", function (e) {
-			delete keysDown[e.keyCode];
-		});
 		
 document.addEventListener("mousemove", function(e) {
-		cube.rotateY (e.movementX * 0.01 *(-1));
-		cube.rotateX (e.movementY * 0.01 *(-1));
+		player.rotateY (e.movementX * 0.01 *(-1));
+		player.rotateX (e.movementY * 0.01 *(-1));
+		
+		/* var oldVector = box.getAngularVelocity(); // Vector of velocity the player already has
+		var playerVec3 = new THREE.Vector3(oldVector.x + e.movementY * -0.01, oldVector.y + e.movementX * -0.01, oldVector.z);
+	
+		box.setAngularVelocity(playerVec3); */
+		
 		/* if(e.movementY > 0.5 && camera.position.y < 2){
 			camera.position.y += 0.01;
 		}
@@ -215,18 +249,18 @@ document.addEventListener("mousemove", function(e) {
 		}
 		 */
 		/* if(e.movementX > 0.5){
-			//cube.rotateY(-0.005);
-			cube.rotateZ(-0.005);
+			//player.rotateY(-0.005);
+			player.rotateZ(-0.005);
 		}
 		if(e.movementX < -0.5){
-			//cube.rotateY(0.005);
-			cube.rotateZ(0.005);
+			//player.rotateY(0.005);
+			player.rotateZ(0.005);
 		}
 		if(e.movementY > 0.5){
-			cube.rotateX(0.005);
+			player.rotateX(0.005);
 		}
 		if(e.movementY < -0.5){
-			cube.rotateX(-0.005);
+			player.rotateX(-0.005);
 		} */
 		
 });
@@ -239,17 +273,18 @@ document.getElementsByTagName("div")[0].addEventListener("click", function() {
 	this.requestPointerLock();
 }, false);
 
-
-$( "body" ).mousedown(function() {	
-		cube.fireBullet();
+document.addEventListener("click", function(){
+	player.fireBullet();
 });
 
 var render = function () {
 	requestAnimationFrame( render );
+	//scene.simulate(); // run physics
 	test();
 	positionScene();
 	getInput();
-	socket.emit("update player", {playerMatrix: cube.matrix});
+	socket.emit("update player", {playerMatrix: player.matrix});
+	player.update(clock.getDelta() * 5);
 	moveProjectiles();
 	moveRemoteProj();
 	checkCollision();
@@ -265,9 +300,16 @@ function test(){
 	//moveParticles();
 	//orbit.rotation.z += 0.0001;
 	moveAsteroids();
-	
+	handleExplosions();
 }
+/* update asteroids
+function onUpdateAsteroids(){
+	for(var i = 0; i < data.asteroidArray.length; i++){
 
+		asteroids[i].position.x = data.asteroidArray[i].position.x;
+		asteroids[i].rotation.y = data.asteroidArray[i].position.y;
+		asteroids[i].rotation.z = data.asteroidArray[i].position.z;
+} */
 
 function moveAsteroids(){
 	
@@ -280,32 +322,36 @@ function moveAsteroids(){
 			asteroids[i].position.x = - 30000;
 		}
 	}
+
 }
 
 function updateHUD(){
-	$("#healthText").text("Health: " + cube.getHealth() + "%");
-	$("#infoText").text("X: " + Math.floor(cube.position.x));
-	$("#infoText2").text("Y: " + Math.floor(cube.position.y));
-	$("#infoText3").text("Z: " + Math.floor(cube.position.z));
+	$("#healthText").text("Health: " + player.getHealth() + "%");
+	$("#infoText").text("X: " + Math.floor(player.position.x));
+	$("#infoText2").text("Y: " + Math.floor(player.position.y));
+	$("#infoText3").text("Z: " + Math.floor(player.position.z));
 }
 
 function positionScene(){
-	earth.position.x = cube.position.x + 1800;
-	earth.position.y = cube.position.y + 10;
-	earth.position.z = cube.position.z + 5;
+	earth.position.x = player.position.x + 1800;
+	earth.position.y = player.position.y + 10;
+	earth.position.z = player.position.z + 5;
 	
 	if(!isMobile.any()){
-		skybox.position.x = cube.position.x;
-		skybox.position.y = cube.position.y;
-		skybox.position.z = cube.position.z;
+		skybox.position.x = player.position.x;
+		skybox.position.y = player.position.y;
+		skybox.position.z = player.position.z;
 	}
 
 	stationMesh.rotation.z += 0.001;
-	socket.emit("update asteroids", {});
 }
 
 function checkCollision(){
-	var localBox = new THREE.Box3().setFromObject(cube);
+	collisionPlayer();
+}
+
+function collisionPlayer(){
+	var localBox = new THREE.Box3().setFromObject(player);
 	var bulletBox;
 	var collision;
 	if(remoteProjectiles.length > 0){
@@ -314,62 +360,86 @@ function checkCollision(){
 			collision = localBox.isIntersectionBox(bulletBox);
 			
 				if (collision == true){
-					cube.takeDamage(10);
+					player.takeDamage(10);
 				}
 		}
 	}
-	
-	if(cube.getHealth() <= 0){
-		cube.respawn();
+	if(player.getHealth() <= 0){
+		player.respawn();
 	}
 }
 
+function collisionAsteroid(){
+	var localBox = new THREE.Box3().setFromObject(player);
+	var asteroidBox;
+	var collision;
+	if(asteroids.length > 0){
+		for(var i = 0; i < asteroids.length; i++){
+			asteroidBox = new THREE.Box3().setFromObject(asteroids[i]);
+			collision = localBox.isIntersectionBox(asteroidBox);
+			
+				if (collision == true){
+					player.takeDamage(10);
+				}
+		}
+	}
+}
+
+/* Physijs.BoxMesh.prototype.move = function(x ,y ,z){
+	var oldVector = this.getLinearVelocity(); // Vector of velocity the player already has
+    var playerVec3 = new THREE.Vector3(oldVector.x + x, oldVector.y + y, oldVector.z + z);
+	
+	this.setLinearVelocity(playerVec3);
+} */
+var keysDown = [];
+
+addEventListener("keydown", function (e) {
+	keysDown[e.keyCode] = true;
+});
+
+addEventListener("keyup", function (e) {
+	delete keysDown[e.keyCode];
+});
+
 function getInput(){
-	if ("87" in keysDown){// W
-		cube.move(0, 0, -1);
+	if ("87" in keysDown && player.velocity.z > -10){// W
+		player.velocity.z -= player.speed;
 	}
-	if ("65" in keysDown){// A
-		cube.move(-1, 0, 0);
+	if ("65" in keysDown && player.velocity.x > -6){// A
+		player.velocity.x -= player.speed;
 	}
-	if ("83" in keysDown){// S
-		cube.move(0, 0, 1);
+	if ("83" in keysDown && player.velocity.z < 10){// S
+		player.velocity.z += player.speed;
 	}
-	if ("68" in keysDown){// D
-		cube.move(1, 0, 0);
+	if ("68" in keysDown && player.velocity.x < 6){// D
+		player.velocity.x += player.speed;
 	}
-	if ("81" in keysDown){// Q
-		cube.rotateZ(0.05);
+	if ("32" in keysDown && player.velocity.z < 6){// SPACEBAR
+		var sphereGeo = new THREE.SphereGeometry( 0.2, 64, 64 );
+		var sphereMat = new THREE.MeshBasicMaterial( { color: 0xFFFF00 } );
+		var explosion = new Explosion(sphereGeo, sphereMat);
+		explosion.setPosition(player.position.x, player.position.y, player.position.z);
+		scene.add(explosion);
+		explosions.push(explosion);
 	}
-	if ("69" in keysDown){// E
-		cube.rotateZ(-0.05);
-	}
-	if ("16" in keysDown){// SHIFT
-		cube.setSpeed(5);
-	}
-	else{
-		cube.setSpeed(2);
-	}
-	if("84" in keysDown){ //T for testing
-		orbit.position.x += 10;
-	}
-	if("73" in keysDown){ //I for ID testing
-		console.log("local ship ID:" + cube.getPlayerID());
-		console.log("remote ship ID:" + remoteShips[0].getPlayerID());
-	}
-	if("79" in keysDown){ //O
-		earth.rotation.x += 0.1;
-		console.log("earth rot" + earth.rotation.x + " " + earth.rotation.y + " " + earth.rotation.z);
-	}
-	if("80" in keysDown){ //P
-		earth.rotation.y += 0.1;
-		console.log("earth rot" + earth.rotation.x + " " + earth.rotation.y + " " + earth.rotation.z);
+}
+
+function handleExplosions(){
+	for(var i = 0; i < explosions.length; i++){
+		if(explosions[i].duration.getElapsedTime() > 1){
+			scene.remove(explosions[i]);
+			explosions.splice(explosions[i], 1);
+		}
+		if(explosions.length >= 1){
+			explosions[i].explode();
+		}
 	}
 }
 
 function onSocketConnected() {
 	console.log("scoket connected (client)");
-	console.log("cube get id: " + cube.getPlayerID());
-	socket.emit("new player", {id: cube.id, playerMatrix: cube.matrix});
+	console.log("player get id: " + player.getPlayerID());
+	socket.emit("new player", {id: player.id, playerMatrix: player.matrix});
 }
 function onSocketDisconnect(data) {
     console.log("Disconnected from socket server: " + data.id);
@@ -444,15 +514,15 @@ function projectileById(id) {
 function moveRemoteProj(){
 	for(var i = 0; i< remoteProjectiles.length; i++){
 		
-		remoteProjectiles[i].translateZ(-20);
+		remoteProjectiles[i].translateZ(-1);
 		remoteProjectiles[i].updateMatrix();
 	}
 }
 
 
 function moveProjectiles(){
-	for(var i = 0; i < cube.firedProjectiles.length; i++){
-		cube.firedProjectiles[i].translateZ(-20);
+	for(var i = 0; i < player.firedProjectiles.length; i++){
+		player.firedProjectiles[i].translateZ(-1);
 	}
 }
 
@@ -460,39 +530,41 @@ function onGenerateAsteroids(data){
 	var loader2 = new THREE.JSONLoader(); // init the loader util
 	loader2.load('models/rock.json', function (geometry) {
   // create a new material
-	var material = new THREE.MeshLambertMaterial({
-		map: THREE.ImageUtils.loadTexture('/img/meteor.jpg'),  // specify and load the texture
-	});
-	
-	for(i = 0; i < data.asteroidArray.length; i++){
-		var pivot = new THREE.Object3D();
-		pivot.rotation.z = 4 * Math.PI / 3;
-		orbit.add(pivot);
-		var newAsteroid = new THREE.Mesh( geometry, material );
-		newAsteroid.position.x = data.asteroidArray[i].posX;
-		newAsteroid.position.y = data.asteroidArray[i].posY;
-		newAsteroid.position.z = data.asteroidArray[i].posZ;
+		var material = new THREE.MeshLambertMaterial({
+			map: THREE.ImageUtils.loadTexture('/img/meteor.jpg'),  // specify and load the texture
+		});
 		
-		newAsteroid.rotation.x = data.asteroidArray[i].rotX;
-		newAsteroid.rotation.y = data.asteroidArray[i].rotY;
-		newAsteroid.rotation.z = data.asteroidArray[i].rotZ;
-		
-		newAsteroid.scale.x = data.asteroidArray[i].scaleX;
-		newAsteroid.scale.y = data.asteroidArray[i].scaleY;
-		newAsteroid.scale.z = data.asteroidArray[i].scaleZ;
-		
-		newAsteroid.rotAmount = data.asteroidArray[i].rotAmount;
-		newAsteroid.speed = data.asteroidArray[i].speed;
+		for(i = 0; i < data.asteroidArray.length; i++){
+			var pivot = new THREE.Object3D();
+			pivot.rotation.z = 4 * Math.PI / 3;
+			orbit.add(pivot);
+			var newAsteroid =  new Physijs.BoxMesh( geometry, material );
 
-		//newAsteroid.scale.set(randomNumber(10, 4), randomNumber(10, 4), randomNumber(10, 4));
-		newAsteroid.receiveShadow = true;
-		newAsteroid.castShadow = true;
-		//pivot.add(asteroid);
-		scene.add( newAsteroid );
-		asteroids.push(newAsteroid);
-	};
-  
+			if(data.asteroidArray[i].explosive == 11){
+				newAsteroid.material = new THREE.MeshLambertMaterial( { color: 0xCC0000 } );
+			}
+			newAsteroid.position.x = data.asteroidArray[i].posX;
+			newAsteroid.position.y = data.asteroidArray[i].posY;
+			newAsteroid.position.z = data.asteroidArray[i].posZ;
 
+			newAsteroid.rotation.x = data.asteroidArray[i].rotX;
+			newAsteroid.rotation.y = data.asteroidArray[i].rotY;
+			newAsteroid.rotation.z = data.asteroidArray[i].rotZ;
+			
+			newAsteroid.scale.x = data.asteroidArray[i].scaleX;
+			newAsteroid.scale.y = data.asteroidArray[i].scaleY;
+			newAsteroid.scale.z = data.asteroidArray[i].scaleZ;
+			
+			newAsteroid.rotAmount = data.asteroidArray[i].rotAmount;
+			newAsteroid.speed = data.asteroidArray[i].speed;
+			
+			newAsteroid.bbox = new THREE.Box3().setFromObject(newAsteroid);
+			//newAsteroid.receiveShadow = true;
+			//newAsteroid.castShadow = true;
+			//pivot.add(asteroid);
+			scene.add( newAsteroid );
+			asteroids.push(newAsteroid);
+		};
 	});
 	
 }
